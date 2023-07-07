@@ -1,0 +1,64 @@
+---
+version: "3"
+services:
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    volumes:
+      - db:/var/lib/postgresql/data
+      #- /home/alex/nextcloud/database:/var/lib/postgresql/data
+    labels:
+      - docker-volume-backup.stop-during-backup=true 
+  nextcloud:
+    image: nextcloud
+    restart: always
+    ports:
+      - 8080:80
+    links:
+      - db
+    volumes:
+      - nextcloud:/var/www/html
+        #- nextCloudApps:/var/www/html/custom_apps
+        # - nextCloudConfig:/var/www/html/config
+        # - nextCloudData:/var/www/html/data
+      #- /home/alex/nextcloud/data:/var/www/html
+    labels:
+      - docker-volume-backup.stop-during-backup=true
+    environment:
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_HOST=db
+  heimdall:
+    image: lscr.io/linuxserver/heimdall:latest
+    container_name: heimdall
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /path/to/appdata/config:/config
+    ports:
+      - 80:80
+      - 443:443
+    restart: unless-stopped
+      #    offen:
+      #image: offen/offen:latest
+      #volumes:
+      #  - db:/var/opt/offen
+      #labels:
+      #  - docker-volume-backup.stop-during-backup=true
+  backup:
+    image: offen/docker-volume-backup:latest
+    env_file: ./backup.env
+    volumes:
+      - nextcloudBackedUp:/backup/nextcloud-backup:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+volumes:
+  nextcloud:
+  db:
