@@ -1,0 +1,29 @@
+---
+version: "3"
+services:
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    volumes:
+      - /tmp/backup/postgres-backup:/var/lib/postgresql/data
+  nextcloud:
+    image: nextcloud
+    restart: always
+    ports:
+      - 8080:80
+    links:
+      - db
+    volumes:
+      - /tmp/backup/nextcloud-backup:/var/www/html
+    environment:
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_HOST=db
+#volumes:
+#  nextcloud:
+#  db:

@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password
     volumes:
-      - nextcloud:/var/lib/postgresql/data
+      - db:/var/lib/postgresql/data
     labels:
       - docker-volume-backup.stop-during-backup=true 
   nextcloud:
@@ -33,7 +33,9 @@ services:
     env_file: ./backup.env
     volumes:
       - nextcloud:/backup/nextcloud-backup:ro
+      - db:/backup/postgres-backup:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /home/alex/nextcloud/backup:/archive    
 volumes:
   nextcloud:
+  db:
