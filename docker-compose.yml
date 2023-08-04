@@ -1,33 +1,85 @@
 ---
 version: "3"
+secrets:
+  postgres_db:
+    external: true
+  postgres_host:
+    external: true
+  postgres_password:
+    external: true
+  postgres_admin:
+    external: true
+  redis_host:
+    external: true
+  redis_host_port:
+    external: true
+  redis_host_password:
+    external: true
 services:
   db:
     image: postgres
     restart: always
+    secrets:
+      - postgres_db
+      - postgres_admin
+      - postgres_password
     environment:
-      POSTGRES_DB: nextcloud
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB_FILE: /run/secrets/postgres_db
+      POSTGRES_USER_FILE: /run/secrets/postgres_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     volumes:
       - db:/var/lib/postgresql/data
     labels:
-      - docker-volume-backup.stop-during-backup=true 
+      - docker-volume-backup.stop-during-backup=true  
+    networks:
+      - nextcloud-network
+  redis:
+    image: redis
+    restart: always
+    secrets:
+      - redis_host_password
+    environment:
+      REDIS_PASS_FILE: /run/secrets/redis_host_password
+    command: [
+      "bash", "-c",
+      '
+       docker-entrypoint.sh
+       --requirepass "$$(cat $$REDIS_PASS_FILE)"
+      '
+    ]
+    #command: redis-server --requirepass password
+    networks:
+      - nextcloud-network
   nextcloud:
     image: nextcloud
     restart: always
+    secrets:
+      - postgres_db
+      - postgres_admin
+      - postgres_password
+      - postgres_host
+      - redis_host
+      - redis_host_port
+      - redis_host_password
     ports:
       - 8080:80
     links:
       - db
+      - redis
     volumes:
       - nextcloud:/var/www/html
     labels:
       - docker-volume-backup.stop-during-backup=true
     environment:
-      - POSTGRES_DB=nextcloud
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_HOST=db
+      - POSTGRES_DB_FILE=/run/secrets/postgres_db
+      - POSTGRES_USER_FILE=/run/secrets/postgres_admin
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+      - POSTGRES_HOST_FILE=/run/secrets/postgres_host
+      - REDIS_HOST_FILE=/run/secrets/redis_host
+      - REDIS_HOST_PORT_FILE=/run/secrets/redis_host_port
+      - REDIS_HOST_PASSWORD_FILE=/run/secrets/redis_host_password
+    networks:
+      - nextcloud-network
   backup:
     image: offen/docker-volume-backup:latest
     env_file: ./backup.env
@@ -35,7 +87,12 @@ services:
       - nextcloud:/backup/nextcloud-backup:ro
       - db:/backup/postgres-backup:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /home/alex/nextcloud/backup:/archive    
+#      - /home/alex/nextcloud/backup:/archive   
+    networks: 
+      - nextcloud-network
 volumes:
   nextcloud:
   db:
+networks:
+  nextcloud-network:
+    driver: bridge
